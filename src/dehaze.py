@@ -72,39 +72,18 @@ def Recover(im,t,A,tx):
     res = np.empty(im.shape,im.dtype)
     t = cv2.max(t,tx)
 
-    print(f'\n\n\nt={t}\n\n\n')
-
-
     for ind in range(0,3):
         res[:,:,ind] = (im[:,:,ind]-A[0,ind])/t + A[0,ind]
 
     return res
 
 def Dehaze(src, amount=0.1):
-    start = time.process_time()
     I = src.astype('float64')/255
-    print(f'Type arithmetic and conversion: {time.process_time() - start}')
 
-
-    start = time.process_time()
     dark = DarkChannel(I,15)
-    print(f'Darkchannel: {time.process_time() - start}')
-
-    start = time.process_time()
     A = AtmLight(I,dark)
-    print(f'Atmlight: {time.process_time() - start}')
-
-    start = time.process_time()
     te = TransmissionEstimate(I,A,15)
-    print(f'TE: {time.process_time() - start}')
-
-    start = time.process_time()
     t = TransmissionRefine(src,te)
-    print(f'Transrefine: {time.process_time() - start}')
-
-    start = time.process_time()
     J = Recover(I,t,A,1-amount)
-    print(f'Recover: {time.process_time() - start}')
-
 
     return (J*255).astype(np.int_)

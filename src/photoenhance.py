@@ -15,6 +15,10 @@ from joblib import Parallel, delayed
 import exifreader
 from PIL import Image
 
+import perftimer
+stepTimer = perftimer.Timer()
+overallTimer = perftimer.Timer()
+
 def getClippingLimits(altitude):
     r_limit = -0.0000011296 * altitude**4 + 0.0000575441 * altitude**3 - 0.0009774864 * altitude**2 + 0.0056842405 * altitude - 0.0017444152
     g_limit = 0.0000038958 * altitude**3 - 0.0001131430 * altitude**2 + 0.0004288439 * altitude + 0.0064228875
@@ -31,41 +35,9 @@ def getBeta(altitude):
 
 
 def denoise_1ch(y, filter_size):
-    timer = Timer()
     y = y.astype('float64') / 255
-    print(y)
-    timer.start()
     y = scipy.signal.wiener(y, filter_size)
-    timer.stop_and_disp('Wiener')
     return (y*255).astype(np.uint8)
-
-def denoise(img, filter_size):
-    print(type(img))
-    print(len(img))
-    print(type(img[2]))
-    print(len(img[2]))
-    print(type(img[:,:,0]))
-    print(len(img[:,:,0]))
-
-
-    for i in range(0,3):
-        img[:,:,i] = scipy.signal.wiener(img[:,:,i].astype('float64')/255, filter_size).astype(np.uint8)
-    return img
-
-# def denoise(r, g, b, filter_size):
-#     r = r/255.0
-#     g = g/255.0
-#     b = b/255.0
-#     r_denoise = (scipy.signal.wiener(r, filter_size[0])*255).astype(np.uint8)
-#     g_denoise = (scipy.signal.wiener(g, filter_size[1])*255).astype(np.uint8)
-#     b_denoise = (scipy.signal.wiener(b, filter_size[2])*255).astype(np.uint8)
-#     # r_denoise = r
-#     # g_denoise = g
-#     # b_denoise = b
-#     # r_denoise = (r_denoise*255).astype(np.uint8)
-#     # g_denoise = (g_denoise*255).astype(np.uint8)
-#     # b_denoise = (b_denoise*255).astype(np.uint8)
-#     return r_denoise, g_denoise, b_denoise
 
 def adaptive_histeq_1ch(img, filter_size, clip_limit=4.0):
     # print(img)
@@ -85,10 +57,11 @@ def sharpen_image(img, sigma, kernel_size=(0,0), strength=0.8):
     return sharpened
 
 def add_brightness(img, brightness):
-    return cv2.convertScaleAbs(img, beta=(33.0*brightness))
+    return cv2.convertScaleAbs(img, beta=2.55*brightness)
 
 def image_complement(img):
-    return cv2.bitwise_not(img)
+    # return cv2.bitwise_not(img)
+    return 255-img
 
 def image_complementY(img):
     yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
@@ -99,11 +72,11 @@ def image_complementY(img):
     return bgr
 
 def dehaze_from_original_example(img, dehaze_amount):
-    # A_inv = image_complementY(img)
-    # B_inv = Dehaze(A_inv, dehaze_amount)
-    # return image_complementY(B_inv)
+    A_inv = image_complement(img)
+    B_inv = Dehaze(A_inv, dehaze_amount)
+    return image_complement(B_inv)
 
-    return Dehaze(img, dehaze_amount)
+    # return Dehaze(img, dehaze_amount)
 
 def read_image_rgb(imgpath):
     # opencv extracts channels in the bgr format
@@ -119,38 +92,20 @@ def get_index_of_extension(name):
 def get_filename_noext(name):
     return name[:get_index_of_extension(name)]
 
-class Timer():
-    def __init__(self):
-        self.startTime = 0
-        self.timeTaken = 0
-
-    def start(self):
-        self.startTime = time.process_time()
-
-    def stop(self):
-        self.timeTaken = time.process_time() - self.startTime
-
-    def stop_and_disp(self, label):
-        self.stop()
-        self.print(label)
-
-    def print(self, label):
-        print(f'{label}: {self.timeTaken}')
 
 def processImage(input_imgpath, output_imgpath):
-    overallTimer = Timer()
     overallTimer.start()
 
-    timer = Timer()
+
 
     PILImage = Image.open(input_imgpath)
 
     # get altitude metadata
-    timer.start()
+    stepTimer.start()
     altitude = exifreader.getAltitude(PILImage)
     if altitude <= 0.0:
         altitude = 6
-    timer.stop_and_disp('getAltitude')
+    stepTimer.stop_and_disp('getAltitude')
 
 
     print(f'Altitude={altitude}')
@@ -163,50 +118,47 @@ def processImage(input_imgpath, output_imgpath):
     # Scale by 255 as possible values are [0,1] in matlab and [0,255] in opencv
     clip_limits = [255*i for i in clip_limits]   
     
-    timer.start()
+    stepTimer.start()
     # r, g, b = read_image_rgb(input_imgpath)
     img = cv2.imread(input_imgpath, cv2.IMREAD_COLOR)
-    timer.stop_and_disp('Read')
+    stepTimer.stop_and_disp('Read')
 
     b, g, r = cv2.split(img)
 
 
     # 1. DENOISING
-    timer.start()
+    stepTimer.start()
     b = denoise_1ch(b, (4, 4))
     g = denoise_1ch(g, (5, 5))
     r = denoise_1ch(r, (6, 6))
-    timer.stop_and_disp('Denoise')
+    stepTimer.stop_and_disp('Denoise')
 
     # 2. ADAPTIVE HIST EQ
     print(f'ClipLimits={clip_limits}')
-    timer.start()
+    stepTimer.start()
     r, g, b = adaptive_histeq(r, g, b, filter_size=histeq_size, clip_limits=clip_limits)
-    timer.stop_and_disp('Adaptive HistEq')
+    stepTimer.stop_and_disp('Adaptive HistEq')
 
-    # img = cv2.merge([b, g, r])
+    img = cv2.merge([b, g, r])
     # cv2.imwrite(output_imgpath+'equalized.jpg', img)
 
     # 3. SHARPENING
-    timer.start()
+    stepTimer.start()
     img = sharpen_image(img, 2, strength=1.2)
-    timer.stop_and_disp('Sharpen')
+    stepTimer.stop_and_disp('Sharpen')
 
     # 4. DEHAZING
-    timer.start()
+    stepTimer.start()
     dehaze_amount = altitude / 120
+    print(f'dehaze_amount={dehaze_amount}')
     final_img = dehaze_from_original_example(img, dehaze_amount)
-    timer.stop_and_disp('Dehaze')
+    stepTimer.stop_and_disp('Dehaze')
 
     # 5. ADDING BRIGHTNESS
-    timer.start()
+    stepTimer.start()
     print(f'beta={getBeta(altitude)}')
     final_img = add_brightness(final_img, getBeta(altitude))
-    timer.stop_and_disp('Add Brightness')
-
-    print(final_img)
-
-    # cv2.imwrite(output_imgpath, final_img)
+    stepTimer.stop_and_disp('Add Brightness')
 
     # convert to rgb image, save with exif data from PILImage
     output_img_data = Image.fromarray(cv2.cvtColor(final_img, cv2.COLOR_BGR2RGB))
@@ -259,7 +211,11 @@ def isImageFile(name):
     print(ext.lower())
     return ext.lower() in valid_ext
 
-def photoenhance(target=''):
+def photoenhance(target='', time_profiling=False):
+    if not time_profiling:
+        stepTimer.disable()
+        overallTimer.disable()
+
     if target:
         imgdir=target
         inputs = []
@@ -287,4 +243,7 @@ def main(**kwargs):
 
 if __name__=='__main__':
     sysargs = [arg.replace("--","") for arg in sys.argv[1:]]
-    main(**dict(arg.split('=') if '=' in arg else [arg, 'True'] for arg in sysargs))
+    if 'target' not in sysargs[0]:
+        sysargs[0] = f'target={sysargs[0]}'
+
+    main(**dict(arg.split('=') if '=' in arg else arg for arg in sysargs))
