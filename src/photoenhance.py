@@ -104,10 +104,11 @@ def processImage(input_imgpath, output_imgpath):
     stepTimer.start()
     altitude = exifreader.getAltitude(PILImage)
     if altitude <= 0.0:
+        print('Using default altitude of 6')
         altitude = 6
     stepTimer.stop_and_disp('getAltitude')
 
-
+    print(f'Processing file {input_imgpath}')
     print(f'Altitude={altitude}')
 
 
@@ -211,7 +212,7 @@ def isImageFile(name):
     print(ext.lower())
     return ext.lower() in valid_ext
 
-def photoenhance(target='', time_profiling=False):
+def photoenhance(target='', time_profiling=False, load=0.9):
     if not time_profiling:
         stepTimer.disable()
         overallTimer.disable()
@@ -231,7 +232,7 @@ def photoenhance(target='', time_profiling=False):
                         # processImage(input_imgpath, output_imgpath)
                         inputs.append([input_imgpath, output_imgpath])
 
-        processImage_multi(inputs)
+        processImage_multi(inputs, cpu_load=float(load))
     else:
         print('INVALID TARGET: Directory does not exist')
 
