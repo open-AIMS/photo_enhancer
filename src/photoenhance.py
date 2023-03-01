@@ -150,7 +150,8 @@ def processImage(input_imgpath, output_imgpath):
 
     # 4. DEHAZING
     stepTimer.start()
-    dehaze_amount = altitude / 120
+    # dehaze_amount = altitude / 120
+    dehaze_amount = altitude**2 / 600
     print(f'dehaze_amount={dehaze_amount}')
     final_img = dehaze_from_original_example(img, dehaze_amount)
     stepTimer.stop_and_disp('Dehaze')
@@ -161,8 +162,18 @@ def processImage(input_imgpath, output_imgpath):
     final_img = add_brightness(final_img, getBeta(altitude))
     stepTimer.stop_and_disp('Add Brightness')
 
+    # #6. CUSTOM LAB-space HISTEQ
+    final_img = cv2.cvtColor(final_img, cv2.COLOR_BGR2Lab)
+
+    # Clip limit as function of altitude
+    postproc_clip_limit = 0.03 * altitude + 0.3
+
+    clahe = cv2.createCLAHE(clipLimit=postproc_clip_limit, tileGridSize=(32,32))
+    final_img[:,:,0] = clahe.apply(final_img[:,:,0])
+    final_img = cv2.cvtColor(final_img, cv2.COLOR_Lab2RGB)
+
     # convert to rgb image, save with exif data from PILImage
-    output_img_data = Image.fromarray(cv2.cvtColor(final_img, cv2.COLOR_BGR2RGB))
+    output_img_data = Image.fromarray(final_img)
     output_img_data.save(output_imgpath, quality=100, exif=PILImage.info['exif'])
 
 
@@ -224,7 +235,7 @@ def photoenhance(target='', time_profiling=False, load=0.9):
                 input_imgpath = os.path.join(imgdir, imgfile)
                 if os.path.isfile(input_imgpath) and isImageFile(input_imgpath):
 
-                    output_imgpath = get_filename_noext(input_imgpath) + '_enh.jpg'
+                    output_imgpath = get_filename_noext(input_imgpath) + '_enh_he.jpg'
                     
                     # if not os.path.exists(output_imgpath):
                     if '_enh' not in input_imgpath:
