@@ -168,7 +168,16 @@ def processImage(input_imgpath, output_imgpath):
     # Clip limit as function of altitude
     postproc_clip_limit = 0.03 * altitude + 0.3
 
-    clahe = cv2.createCLAHE(clipLimit=postproc_clip_limit, tileGridSize=(32,32))
+    # Multiplier for extra contrasting
+    # examples: alt, multiplier = {5, 1}, {7, 1.04}, {15, 1.2}
+    multiplier = 0.9 + altitude / 50
+
+    # Apply multiplier but cap clip limit to 1.5
+    # Fourth order multiplier for stronger histeq on deeper surfaces (obtained empirically)
+    postproc_clip_limit = np.minimum(postproc_clip_limit*(multiplier**4), 1.5)
+
+    # Perform post-processing histeq on L* channel
+    clahe = cv2.createCLAHE(clipLimit=postproc_clip_limit, tileGridSize=(32, 32))
     final_img[:,:,0] = clahe.apply(final_img[:,:,0])
     final_img = cv2.cvtColor(final_img, cv2.COLOR_Lab2RGB)
 
