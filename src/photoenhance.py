@@ -94,6 +94,9 @@ def get_filename_noext(name):
 
 
 def processImage(input_imgpath, output_imgpath):
+
+    print(input_imgpath)
+    print(output_imgpath)
     overallTimer.start()
 
 
@@ -102,7 +105,8 @@ def processImage(input_imgpath, output_imgpath):
 
     # get altitude metadata
     stepTimer.start()
-    altitude = exifreader.getAltitude(PILImage)
+    exif_data = PILImage._getexif()
+    altitude = exifreader.getAltitude(exif_data)
     if altitude <= 0.0:
         print('Using default altitude of 6')
         altitude = 6
@@ -183,7 +187,9 @@ def processImage(input_imgpath, output_imgpath):
 
     # convert to rgb image, save with exif data from PILImage
     output_img_data = Image.fromarray(final_img)
-    output_img_data.save(output_imgpath, quality=100, exif=PILImage.info['exif'])
+    dir = os.path.dirname(output_imgpath)
+    os.makedirs(dir, exist_ok=True)
+    output_img_data.save(output_imgpath, quality=100, exif=exif_data)
 
 
     overallTimer.stop_and_disp('OVERALL')

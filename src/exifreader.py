@@ -3,12 +3,12 @@ from PIL import ExifTags
 
 import numpy as np
 
-def getAltitude(pil_img):
+def getAltitude(exif_data):
     # img = Image.open(imgpath)
-    if pil_img._getexif() is None:
+    if exif_data is None:
         return 0.0
 
-    overall_exifdata = { ExifTags.TAGS[k]: v for k, v in pil_img._getexif().items() if k in ExifTags.TAGS }
+    overall_exifdata = { ExifTags.TAGS[k]: v for k, v in exif_data.items() if k in ExifTags.TAGS }
     
     # Check if 'GPSInfo' key is in the exif metadata
     if 'GPSInfo' in overall_exifdata.keys():
