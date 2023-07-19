@@ -12,16 +12,15 @@ import multiprocessing
 from joblib import Parallel, delayed
 from threading import Thread
 
-from utils import exifreader
 
 if __name__ == "__main__":
     from dehaze.dehaze import Dehaze
-    from utils.exifreader import getAltitude
+    from utils import exifreader
     from utils.perftimer import Timer
 else:
     from photoenhancer.dehaze.dehaze import Dehaze
-    from photoenhancer.utils.exifreader import getAltitude
-    from photoenhancer.utils.perftimer import Timer  
+    from photoenhancer.utils import exifreader
+    from photoenhancer.utils.perftimer import Timer
 
 overallTimer = Timer()
 
@@ -29,6 +28,7 @@ class EnhancerParameters():
     enable_stronger_contrast_deep: bool = False
     denoising: bool = True
     dehazing: bool = True
+    replace_existing: bool = False
 
 class BatchMonitor():
     n_images_completed: int = 0
@@ -366,7 +366,7 @@ def str2bool(mystr):
     return False if mystr.lower() in ['0','false'] else True
 
 def photoenhance(target='', output_folder='enhanced', time_profiling='False', load=0.9, use_suffix='False', suffix='', stronger_contrast_deep='True', disable_denoising='False', batch_monitor=None,
-                 disable_dehazing='False'):
+                 disable_dehazing='False', replace_existing='False'):
     enhancer_params = EnhancerParameters()
 
     output_path = os.path.join(target, output_folder)
@@ -381,6 +381,9 @@ def photoenhance(target='', output_folder='enhanced', time_profiling='False', lo
 
     if str2bool(disable_dehazing):
         enhancer_params.dehazing = False
+
+    if str2bool(replace_existing):
+        enhancer_params.replace_existing = True
 
     useSuffix = True if str2bool(use_suffix) else False
 
@@ -405,7 +408,7 @@ def photoenhance(target='', output_folder='enhanced', time_profiling='False', lo
                     output_imgpath = os.path.join(output_path, output_imgfile)
 
                     # if not os.path.exists(output_imgpath):
-                    if output_suffix not in input_imgpath:
+                    if output_suffix not in input_imgpath and (enhancer_params.replace_existing or not os.path.exists(output_imgpath)):
                         print(f'\nProcessing {input_imgpath} -> {output_imgpath}')
                         # processImage(input_imgpath, output_imgpath)
                         inputs.append([input_imgpath, output_imgpath])
