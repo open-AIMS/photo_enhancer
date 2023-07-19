@@ -5,6 +5,10 @@ class Timer():
         self.startTime = 0
         self.timeTaken = 0
         self.enable()
+        self.labels={}
+
+    def rest(self):
+        self.labels = {}
 
     def start(self):
         self.startTime = time.process_time()
@@ -15,6 +19,16 @@ class Timer():
     def stop_and_disp(self, label):
         self.stop()
         self.print(label)
+        label_time = self.labels.get(label)
+        if label_time is None:
+            label_time = 0
+        label_time += self.timeTaken
+        self.labels[label] = label_time
+
+    def print_labels(self):
+        print ("Times for batch\n")
+        for label, time in self.labels.items():
+            print(f'{label}: {time}\n')
 
     def print(self, label):
         if self.printEnabled:

@@ -12,6 +12,8 @@ import multiprocessing
 from joblib import Parallel, delayed
 from threading import Thread
 
+from utils import exifreader
+
 if __name__ == "__main__":
     from dehaze.dehaze import Dehaze
     from utils.exifreader import getAltitude
@@ -21,7 +23,6 @@ else:
     from photoenhancer.utils.exifreader import getAltitude
     from photoenhancer.utils.perftimer import Timer  
 
-stepTimer = Timer()
 overallTimer = Timer()
 
 class EnhancerParameters():
@@ -146,16 +147,15 @@ def get_filename_noext(name):
     return name[:get_index_of_extension(name)]
 
 
-def processImage(input_imgpath, output_imgpath, enhancer_params=EnhancerParameters(), batch_monitor=BatchMonitor()):
+def processImage(input_imgpath, output_imgpath, enhancer_params=EnhancerParameters(), batch_monitor=BatchMonitor(), stepTimer=Timer()):
     overallTimer.start()
-
-
 
     PILImage = Image.open(input_imgpath)
 
     # get altitude metadata
     stepTimer.start()
-    altitude = getAltitude(PILImage)
+    exif_data = PILImage._getexif()
+    altitude = exifreader.getAltitude(exif_data)
     if altitude <= 0.0:
         print('Using default altitude of 6')
         altitude = 6
@@ -227,6 +227,8 @@ def processImage(input_imgpath, output_imgpath, enhancer_params=EnhancerParamete
     final_img = dehaze_from_original_example(img, dehaze_amount)
     stepTimer.stop_and_disp('Dehaze')
 
+    # final_img = img
+
     # Check if photoenhance was cancelled by some top-level process
     if batch_monitor.cancelled:
         return
@@ -261,11 +263,13 @@ def processImage(input_imgpath, output_imgpath, enhancer_params=EnhancerParamete
     overallTimer.stop_and_disp('OVERALL')
 
 def processImage_batch(batch, enhancer_params=EnhancerParameters(), batch_monitor=BatchMonitor()):
+    stepTimer = Timer()
     start = time.process_time()
     for img in batch:
         if not batch_monitor.cancelled:
-            processImage(img[0], img[1], enhancer_params=enhancer_params, batch_monitor=batch_monitor)
+            processImage(img[0], img[1], enhancer_params=enhancer_params, batch_monitor=batch_monitor, stepTimer=stepTimer)
             batch_monitor.tick()
+    stepTimer.print_labels()
     print(f'Time elapsed: {(time.process_time() - start) / batch_monitor.n_batches}')
 
 
@@ -375,7 +379,6 @@ def photoenhance(target='', output_folder='enhanced', time_profiling='False', lo
     useSuffix = True if str2bool(use_suffix) else False
 
     if not str2bool(time_profiling):
-        stepTimer.disable()
         overallTimer.disable()
 
     if target:
