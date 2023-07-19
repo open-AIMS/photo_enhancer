@@ -28,6 +28,7 @@ overallTimer = Timer()
 class EnhancerParameters():
     enable_stronger_contrast_deep: bool = False
     denoising: bool = True
+    dehazing: bool = True
 
 class BatchMonitor():
     n_images_completed: int = 0
@@ -220,14 +221,15 @@ def processImage(input_imgpath, output_imgpath, enhancer_params=EnhancerParamete
         return
 
     # 4. DEHAZING
-    stepTimer.start()
-    # dehaze_amount = altitude / 120
-    dehaze_amount = altitude**2 / 600
-    print(f'dehaze_amount={dehaze_amount}')
-    final_img = dehaze_from_original_example(img, dehaze_amount)
-    stepTimer.stop_and_disp('Dehaze')
-
-    # final_img = img
+    if enhancer_params.dehazing:
+        stepTimer.start()
+        # dehaze_amount = altitude / 120
+        dehaze_amount = altitude**2 / 600
+        print(f'dehaze_amount={dehaze_amount}')
+        final_img = dehaze_from_original_example(img, dehaze_amount)
+        stepTimer.stop_and_disp('Dehaze')
+    else:
+        final_img = img
 
     # Check if photoenhance was cancelled by some top-level process
     if batch_monitor.cancelled:
@@ -363,7 +365,8 @@ def isImageFile(name):
 def str2bool(mystr):
     return False if mystr.lower() in ['0','false'] else True
 
-def photoenhance(target='', output_folder='enhanced', time_profiling='False', load=0.9, use_suffix='False', suffix='', stronger_contrast_deep='True', disable_denoising='False', batch_monitor=None):
+def photoenhance(target='', output_folder='enhanced', time_profiling='False', load=0.9, use_suffix='False', suffix='', stronger_contrast_deep='True', disable_denoising='False', batch_monitor=None,
+                 disable_dehazing='False'):
     enhancer_params = EnhancerParameters()
 
     output_path = os.path.join(target, output_folder)
@@ -375,6 +378,9 @@ def photoenhance(target='', output_folder='enhanced', time_profiling='False', lo
 
     if str2bool(disable_denoising):
         enhancer_params.denoising = False
+
+    if str2bool(disable_dehazing):
+        enhancer_params.dehazing = False
 
     useSuffix = True if str2bool(use_suffix) else False
 
