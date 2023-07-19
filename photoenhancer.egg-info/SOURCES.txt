@@ -2,6 +2,7 @@ README.md
 setup.py
 photoenhancer/__init__.py
 photoenhancer/photoenhance.py
+photoenhancer/process_folder_recursive.py
 photoenhancer.egg-info/PKG-INFO
 photoenhancer.egg-info/SOURCES.txt
 photoenhancer.egg-info/dependency_links.txt
