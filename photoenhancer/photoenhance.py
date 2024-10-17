@@ -75,9 +75,18 @@ def getScipy():
     return scipy
 
 def getClippingLimits(altitude):
+    # if altitude > 15:
+    #     altitude = 15
+
     r_limit = -0.0000011296 * altitude**4 + 0.0000575441 * altitude**3 - 0.0009774864 * altitude**2 + 0.0056842405 * altitude - 0.0017444152
     g_limit = 0.0000038958 * altitude**3 - 0.0001131430 * altitude**2 + 0.0004288439 * altitude + 0.0064228875
     b_limit = 0.0000050696 * altitude**3 - 0.0001263203 * altitude**2 + 0.0005117638 * altitude + 0.0049041834
+    
+    # override r_limit to getClippingLimits(15) = 0.00061 
+    # to prevent r_limit from going to zero and negative
+    if altitude > 15:
+        r_limit = 0.0006100898
+    
     return r_limit, g_limit, b_limit
 
 def getClipippingLimitsY(altitude):
@@ -260,8 +269,13 @@ def processImage(input_imgpath, output_imgpath, enhancer_params=EnhancerParamete
 
     # convert to rgb image, save with exif data from PILImage
     output_img_data = Image.fromarray(final_img)
-    output_img_data.save(output_imgpath, quality=100, exif=PILImage.info['exif'])
     
+    if 'exif' in PILImage.info:
+        output_img_data.save(output_imgpath, quality=100, exif=PILImage.info['exif'])
+    else:
+        output_img_data.save(output_imgpath, quality=100)
+
+
     overallTimer.stop_and_disp('OVERALL')
 
 def processImage_batch(batch, enhancer_params=EnhancerParameters(), batch_monitor=BatchMonitor()):
