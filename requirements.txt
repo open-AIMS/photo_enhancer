@@ -3,3 +3,4 @@ scipy
 opencv-python
 joblib
 Pillow
+wheel
