@@ -87,6 +87,12 @@ def getClippingLimits(altitude):
     if altitude > 15:
         r_limit = 0.0006100898
     
+    # override g_limit to getClippingLimits(20) = 0.000909
+    if altitude > 19:
+        # g_limit = 0.0009089655
+        g_limit /= 3
+        b_limit /= 3
+
     return r_limit, g_limit, b_limit
 
 def getClipippingLimitsY(altitude):
@@ -233,7 +239,10 @@ def processImage(input_imgpath, output_imgpath, enhancer_params=EnhancerParamete
     if enhancer_params.dehazing:
         stepTimer.start()
         # dehaze_amount = altitude / 120
-        dehaze_amount = altitude**2 / 600
+        if altitude <= 15:
+            dehaze_amount = altitude**2 / 600
+        else:
+            dehaze_amount = 0.375  #cap the dehaze amount to as if atitude=15
         print(f'dehaze_amount={dehaze_amount}')
         final_img = dehaze_from_original_example(img, dehaze_amount)
         stepTimer.stop_and_disp('Dehaze')
